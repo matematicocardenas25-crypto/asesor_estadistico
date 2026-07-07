@@ -33,25 +33,9 @@ source("modules/mod_datos_agrupados.R")
 source("modules/mod_normalidad.R")
 
 # ==============================
-# CONFIGURACIÓN LATEX
+# CONFIGURACIÓN (Sin LaTeX)
 # ==============================
-buscar_tinytex <- function() {
-  posibles <- c(
-    "C:/ProgramData/TinyTeX/bin/windows",
-    file.path(Sys.getenv("LOCALAPPDATA"), "TinyTeX/bin/windows"),
-    file.path(Sys.getenv("APPDATA"), "TinyTeX/bin/windows")
-  )
-
-  for(ruta in posibles) {
-    if(file.exists(file.path(ruta, "pdflatex.exe"))) {
-      Sys.setenv(PATH = paste(ruta, Sys.getenv("PATH"), sep = ";"))
-      return(TRUE)
-    }
-  }
-  return(FALSE)
-}
-
-latex_ok <- buscar_tinytex()
+latex_ok <- FALSE  # No usaremos PDF, solo HTML y Word
 
 options(shiny.maxRequestSize = 150 * 1024^2)
 
@@ -306,24 +290,24 @@ server <- function(input, output, session){
   # =============================
   # 📄 REPORTES
   # =============================
- mod_reportes_server("reportes", df_global, vars)
+  mod_reportes_server("reportes", df_global, vars)
+  
   # =============================
   # 📈  Descrptivos agrupados
   # ============================
+  mod_datos_agrupados_server("agrupados", df_global)
   
-  mod_datos_agrupados_server(
-    "agrupados",df_global)
   # ===========================
   # Normalidad
   # ==============  
-  mod_normalidad_server("normalidad",df_global)
+  mod_normalidad_server("normalidad", df_global)
+  
   # =============================
   # 📥 DESCARGAR BASE COMPLETA
   # =============================
   output$descargar_datos <- downloadHandler(
     
     filename = function(){
-      
       formato <- input$formato_descarga
       
       # ✅ proteger valor
@@ -351,30 +335,18 @@ server <- function(input, output, session){
       formato <- as.character(formato)
       
       if (formato == "csv") {
-        
         write.csv(data, file, row.names = FALSE)
-        
       } else if (formato == "xlsx") {
-        
         writexl::write_xlsx(data, path = file)
-        
       } else if (formato == "rds") {
-        
         saveRDS(data, file = file)
-        
       } else if (formato == "sav") {
-        
         haven::write_sav(data, path = file)
-        
       } else if (formato == "dta") {
-        
         haven::write_dta(data, path = file)
-        
       } else {
-        
         # ✅ fallback seguro
         write.csv(data, file, row.names = FALSE)
-        
       }
       
     }
