@@ -32,4 +32,3 @@ EXPOSE 8080
 
 # 7. Comando de inicio
 CMD ["R", "-e", "shiny::runApp('/app', host='0.0.0.0', port=as.numeric(Sys.getenv('PORT', '8080')))" ]
-``*
