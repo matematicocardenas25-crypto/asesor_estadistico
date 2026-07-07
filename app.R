@@ -35,7 +35,7 @@ source("modules/mod_normalidad.R")
 # ==============================
 # CONFIGURACIÓN (Sin LaTeX)
 # ==============================
-latex_ok <- FALSE  # No usaremos PDF, solo HTML y Word
+latex_ok <- FALSE  
 
 options(shiny.maxRequestSize = 150 * 1024^2)
 
@@ -44,7 +44,6 @@ options(shiny.maxRequestSize = 150 * 1024^2)
 # ==============================================================================
 ui <- fluidPage(
 
-  # -------- META + CSS --------
   tags$head(
     tags$meta(name = "author", content = "Ismael Antonio Cardenas López"),
     
@@ -53,7 +52,6 @@ ui <- fluidPage(
         background: linear-gradient(135deg, #eef2f3 0%, #8e9eab 100%);
         font-family: 'Segoe UI';
       }
-
       .header-card {
         background: white;
         padding: 25px;
@@ -64,14 +62,12 @@ ui <- fluidPage(
         align-items: center;
         gap: 25px;
       }
-
       .profile-img {
         border-radius: 50%;
         width: 100px;
         height: 100px;
         border: 3px solid #34495e;
       }
-
       .welcome-msg {
         background: linear-gradient(135deg, #667eea, #764ba2);
         color: white;
@@ -80,7 +76,6 @@ ui <- fluidPage(
         text-align: center;
         margin: 20px;
       }
-
       .card {
         background: white;
         padding: 20px;
@@ -90,7 +85,6 @@ ui <- fluidPage(
     "))
   ),
 
-  # -------- HEADER --------
   div(class = "header-card",
       img(src = "foto.jpeg", class = "profile-img"),
       div(
@@ -100,13 +94,11 @@ ui <- fluidPage(
       )
   ),
 
-  # -------- BIENVENIDA --------
   div(class = "welcome-msg",
       h2("🎓 Asesor Estadístico Inteligente"),
       p("Análisis descriptivo, inferencial y visualización interactiva de datos")
   ),
 
-  # -------- LAYOUT --------
   sidebarLayout(
     
     sidebarPanel(
@@ -147,6 +139,7 @@ ui <- fluidPage(
       
       downloadButton("descargar_datos", "📥 Descargar base completa")
     ),
+    
     mainPanel(
       tabPanel("📜 Historial",
                div(class="card",
@@ -173,23 +166,17 @@ ui <- fluidPage(
                      mod_calculos_ui("calc")
                  )
         ),
-        tabPanel(
-          "📊 Datos agrupados",
-          
-          div(
-            class = "card",
-            
-            mod_datos_agrupados_ui(
-              "agrupados"
-            )
-          )
+        
+        tabPanel("📊 Datos agrupados",
+                 div(class = "card",
+                     mod_datos_agrupados_ui("agrupados")
+                 )
         ),
-        tabPanel(
-          "📈 Normalidad",
-          div(
-            class = "card",
-            mod_normalidad_ui("normalidad")
-          )
+        
+        tabPanel("📈 Normalidad",
+                 div(class = "card",
+                     mod_normalidad_ui("normalidad")
+                 )
         ),
         
         tabPanel("📈 Gráficos",
@@ -204,7 +191,7 @@ ui <- fluidPage(
                  )
         ),
         
-        tabPanel("🧮 Variables",   # ✅ NUEVO
+        tabPanel("🧮 Variables",
                  div(class = "card",
                      mod_vars_derivadas_ui("vars_derivadas")
                  )
@@ -213,7 +200,6 @@ ui <- fluidPage(
         tabPanel("💻 Script",
                  div(class = "card",
                      mod_script_ui("script")
-                     
                  )
         )
       )
@@ -221,117 +207,53 @@ ui <- fluidPage(
     
   )
 )
+
 # ==============================================================================
 # SERVER
 # ==============================================================================
 server <- function(input, output, session){
   
-  # =============================
-  # HISTORIAL
-  # =============================
   historial <- reactiveValues(log = list())
-  
-  # =============================
-  # CARGA DE DATOS ORIGINAL
-  # =============================
   df <- mod_carga_datos_server("datos")
-  
- # =============================
-  # DATASET GLOBAL ✅ (CLAVE)
-  # =============================
   df_global <- reactiveVal(NULL)
   
-  # cargar datos iniciales
   observeEvent(df(), {
     df_global(df())
   })
   
-  # =============================
-  # SELECTOR (YA USA df_global)
-  # =============================
   vars <- mod_selector_server("vars", df_global, input)
-  
-  # =============================
-  # VARIABLES DERIVADAS ✅ NUEVO
-  # =============================
   mod_vars_derivadas_server("vars_derivadas", df_global)
   
-  # =============================
-  # 📜 HISTORIAL + CÁLCULOS
-  # =============================
   mod_calculos_server("calc", df_global, vars, input, historial)
   mod_historial_server("historial", historial)
-  
-  # =============================
-  # 📂 INFORMACIÓN DE DATOS
-  # =============================
   mod_info_server("info", df_global)
-  
-  # =============================
-  # 📘 GUÍA
-  # =============================
   mod_guia_server("guia", df_global, vars, input)
-  
-  # =============================
-  # 🔍 EXPLORACIÓN
-  # =============================
   mod_exploracion_server("exploracion", df_global)
-  
-  # =============================
-  # 📈 GRÁFICOS
-  # =============================
   mod_graficos_server("plot", df_global, vars)
-  
-  # =============================
-  # 💻 SCRIPT
-  # =============================
   mod_script_server("script", df_global, vars, input)
-  
-  # =============================
-  # 📄 REPORTES
-  # =============================
   mod_reportes_server("reportes", df_global, vars)
-  
-  # =============================
-  # 📈  Descrptivos agrupados
-  # ============================
   mod_datos_agrupados_server("agrupados", df_global)
-  
-  # ===========================
-  # Normalidad
-  # ==============  
   mod_normalidad_server("normalidad", df_global)
   
-  # =============================
-  # 📥 DESCARGAR BASE COMPLETA
-  # =============================
   output$descargar_datos <- downloadHandler(
     
     filename = function(){
       formato <- input$formato_descarga
-      
-      # ✅ proteger valor
       if (is.null(formato) || formato == "") {
         formato <- "csv"
       }
-      
       paste0("datos_completos_", Sys.Date(), ".", formato)
     },
     
     content = function(file){
       
       req(df_global())
-      
       data <- df_global()
       
       formato <- input$formato_descarga
-      
-      # ✅ protección
       if (is.null(formato) || formato == "") {
         formato <- "csv"
       }
-      
-      # ✅ forzar a character (MUY IMPORTANTE)
       formato <- as.character(formato)
       
       if (formato == "csv") {
@@ -345,7 +267,6 @@ server <- function(input, output, session){
       } else if (formato == "dta") {
         haven::write_dta(data, path = file)
       } else {
-        # ✅ fallback seguro
         write.csv(data, file, row.names = FALSE)
       }
       
@@ -353,7 +274,5 @@ server <- function(input, output, session){
   )
   
 }
-# ==============================================================================
-# RUN APP
-# ==============================================================================
+
 shinyApp(ui, server)
