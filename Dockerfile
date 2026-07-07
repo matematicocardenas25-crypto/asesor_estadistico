@@ -1,21 +1,27 @@
-# Usar la imagen base de Rocker Shiny
-FROM rocker/shiny:4.3.2
+# 1. Utilizar una imagen base oficial de R optimizada para producción
+FROM rocker/r-ver:4.3.2
 
-# 1. Instalar dependencias del sistema necesarias para R y paquetes específicos
+# 2. Instalar dependencias del sistema (añadido pandoc para reportes HTML/Word)
 RUN apt-get update && apt-get install -y \
     libcurl4-gnutls-dev \
     libssl-dev \
     libxml2-dev \
-    libxt6 \
-    libz-dev \
-    && apt-get clean \
+    pandoc \
+    libudunits2-dev \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. Instalar todas tus librerías de R desde el repositorio binario de Posit
-RUN R -e "install.packages(c('shiny', 'readxl', 'haven', 'tools', 'rmarkdown', 'bs4Dash', 'dplyr', 'ggplot2', 'htmltools'), repos='https://packagemanager.posit.co/cran/__linux__/jammy/latest')"
+# 3. Instalar los paquetes de R que utiliza la aplicación
+RUN R -e "install.packages(c('shiny', 'bs4Dash', 'dplyr', 'ggplot2', 'htmltools', 'readxl', 'haven', 'rmarkdown', 'writexl'), repos='https://cloud.r-project.org/')"
 
-# 3. Copiar tu código al directorio que espera Shiny Server
-COPY . /srv/shiny-server/
+# 4. Crear el directorio de trabajo dentro del contenedor y copiar los archivos
+RUN mkdir /app
+COPY . /app
+WORKDIR /app
 
-# 4. Exponer el puerto
-EXPOSE 3838
+# 5. Informar el puerto predeterminado (Render interceptará esto)
+EXPOSE 8080
+
+# 6. Comando de ejecución: Lee la variable PORT del entorno o usa el 8080 por defecto
+CMD ["R", "-e", "shiny::runApp('/app', host='0.0.0.0', port=as.numeric(Sys.getenv('PORT', '8080')))" ]
+``*
