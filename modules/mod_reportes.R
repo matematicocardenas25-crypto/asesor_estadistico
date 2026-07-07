@@ -1,5 +1,5 @@
 # ==============================================================================
-# MÓDULO REPORTES - VERSIÓN CON DEBUGGING Y RUTA FIJA
+# MÓDULO REPORTES - VERSIÓN ADAPTADA PARA RENDER (SOLO HTML Y WORD)
 # ==============================================================================
 
 mod_reportes_ui <- function(id) {
@@ -11,8 +11,8 @@ mod_reportes_ui <- function(id) {
     selectInput(ns("formato_reporte"), "Formato de salida:",
                 choices = c(
                   "HTML (.html)" = "html",
-                  "Word (.docx)" = "docx",
-                  "PDF (.pdf)" = "pdf"
+                  "Word (.docx)" = "docx"
+                  # Removido PDF ya que no hay LaTeX en el servidor
                 ),
                 selected = "html"),
     
@@ -32,7 +32,6 @@ mod_reportes_server <- function(id, df_global, vars) {
         ext <- switch(input$formato_reporte,
                       "html" = "html",
                       "docx" = "docx",
-                      "pdf"  = "pdf",
                       "html")
         paste0("informe_", Sys.Date(), ".", ext)
       },
@@ -46,15 +45,13 @@ mod_reportes_server <- function(id, df_global, vars) {
           return(NULL)
         }
         
-        # USAR DIRECTORIO DE LA APP (no tempdir que puede fallar en Windows)
-        app_dir <- getwd()
-        tempReport <- file.path(app_dir, "informe_temp.Rmd")
+        # Usar directorio temporal seguro (Render lo permite sin problemas)
+        tempReport <- tempfile(fileext = ".Rmd")
         
         # Crear el Rmd
         crear_rmd_archivo(
           archivo = tempReport,
-          titulo = input$titulo_reporte,
-          formato = input$formato_reporte
+          titulo = input$titulo_reporte
         )
         
         # VERIFICAR QUE SE CREÓ
@@ -63,22 +60,14 @@ mod_reportes_server <- function(id, df_global, vars) {
           return(NULL)
         }
         
-        # Leer y mostrar las primeras lineas para debug (solo en consola R)
-        rmd_content <- readLines(tempReport, n = 20)
-        cat("=== RMD CREADO EN:", tempReport, "===\n")
-        cat(paste(rmd_content, collapse = "\n"), "\n")
-        cat("=== FIN PRIMERAS 20 LINEAS ===\n")
-        cat("=== TAMANO DEL ARCHIVO:", file.size(tempReport), "bytes ===\n")
-        
         # Detectar tipo de variables
         vars_numericas <- names(datos)[sapply(datos, is.numeric)]
         vars_categoricas <- names(datos)[sapply(datos, function(x) is.factor(x) || is.character(x))]
         
         # Renderizar segun formato
         output_format <- switch(input$formato_reporte,
-                                "html" = rmarkdown::html_document(toc = TRUE, toc_float = TRUE),
+                                "html" = rmarkdown::html_document(toc = TRUE, toc_float = TRUE, theme = "flatly"),
                                 "docx" = rmarkdown::word_document(toc = TRUE),
-                                "pdf"  = rmarkdown::pdf_document(toc = TRUE),
                                 rmarkdown::html_document(toc = TRUE))
         
         params_list <- list(
@@ -89,13 +78,8 @@ mod_reportes_server <- function(id, df_global, vars) {
           fecha = format(Sys.time(), "%d de %B de %Y, %H:%M")
         )
         
-        # Renderizar con tryCatch detallado
+        # Renderizar con tryCatch
         tryCatch({
-          
-          cat("=== INICIANDO RENDER ===\n")
-          cat("Input:", tempReport, "\n")
-          cat("Output:", file, "\n")
-          cat("Formato:", input$formato_reporte, "\n")
           
           rmarkdown::render(
             input = tempReport,
@@ -106,26 +90,18 @@ mod_reportes_server <- function(id, df_global, vars) {
             clean = TRUE
           )
           
-          cat("=== RENDER COMPLETADO ===\n")
-          cat("=== ARCHIVO GENERADO:", file, "===\n")
-          cat("=== TAMANO:", file.size(file), "bytes ===\n")
-          
           showNotification("Informe generado exitosamente!", type = "message", duration = 5)
           
         }, error = function(e) {
           msg <- conditionMessage(e)
-          cat("=== ERROR EN RENDER ===\n")
-          cat(msg, "\n")
-          cat("=== FIN ERROR ===\n")
-          
-          showNotification(paste("Error:", msg), type = "error", duration = 10)
+          showNotification(paste("Error al generar informe:", msg), type = "error", duration = 10)
           
           # Crear archivo de error para no dejar vacio
           writeLines(paste("Error al generar informe:\n", msg), file)
         })
         
-        # Limpiar archivo temporal Rmd (opcional, comenta si quieres revisarlo)
-        # unlink(tempReport)
+        # Limpiar archivo temporal
+        unlink(tempReport)
       }
     )
   })
@@ -135,24 +111,17 @@ mod_reportes_server <- function(id, df_global, vars) {
 # FUNCION: Crea el archivo Rmd linea por linea
 # ==============================================================================
 
-crear_rmd_archivo <- function(archivo, titulo, formato) {
+crear_rmd_archivo <- function(archivo, titulo) {
   
-  fig_width <- if (formato == "pdf") 7 else 10
-  fig_height <- if (formato == "pdf") 5 else 6
+  # Dimensiones por defecto (optimizadas para HTML y Word)
+  fig_width <- 10
+  fig_height <- 6
   
   lineas <- c(
     "---",
     paste0('title: "', titulo, '"'),
     'author: "Ismael Antonio Cardenas Lopez"',
     'date: "`r params$fecha`"',
-    "output: ",
-    "  html_document:",
-    "    toc: true",
-    "    toc_float: true",
-    "    theme: flatly",
-    "    highlight: tango",
-    paste0("    fig_width: ", fig_width),
-    paste0("    fig_height: ", fig_height),
     "params:",
     '  titulo: "Informe Estadistico"',
     "  datos: NULL",
@@ -167,7 +136,9 @@ crear_rmd_archivo <- function(archivo, titulo, formato) {
     '  message = FALSE,',
     '  warning = FALSE,',
     '  fig.align = "center",',
-    '  out.width = "100%"',
+    '  out.width = "100%",',
+    paste0("  fig.width = ", fig_width, ","),
+    paste0("  fig.height = ", fig_height),
     ")",
     "library(knitr)",
     "library(ggplot2)",
@@ -190,7 +161,7 @@ crear_rmd_archivo <- function(archivo, titulo, formato) {
     "# 2. Estructura de la Base de Datos",
     "",
     "```{r}",
-    'str(params$datos) %>% capture.output() %>% paste(collapse = "\\n") %>% cat()',
+    "str(params$datos) %>% capture.output() %>% paste(collapse = '\\n') %>% cat()",
     "```",
     "",
     "---",
@@ -217,7 +188,7 @@ crear_rmd_archivo <- function(archivo, titulo, formato) {
     "",
     "---",
     "",
-    '# 4. Analisis por Variable Numerica',
+    "# 4. Analisis por Variable Numerica",
     "",
     '```{r, results="asis"}',
     "if (length(params$vars_numericas) > 0) {",
@@ -350,12 +321,4 @@ crear_rmd_archivo <- function(archivo, titulo, formato) {
   
   # Escribir con useBytes = TRUE para evitar problemas de encoding
   writeLines(lineas, archivo, useBytes = TRUE)
-  
-  # Verificar que se escribió
-  if (file.exists(archivo)) {
-    cat("Archivo Rmd creado exitosamente:", archivo, "\n")
-    cat("Tamano:", file.size(archivo), "bytes\n")
-  } else {
-    cat("ERROR: El archivo no se creo:", archivo, "\n")
-  }
 }
