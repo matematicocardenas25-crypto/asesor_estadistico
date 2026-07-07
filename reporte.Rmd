@@ -1,0 +1,10 @@
+---
+title: "Reporte Estadístico"
+output: html_document
+params:
+  datos: NA
+---
+
+```{r}
+summary(params$datos)
+```
