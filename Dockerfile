@@ -1,7 +1,7 @@
-# 1. Imagen base de R
-FROM rocker/r-ver:4.3.2
+# 1. Usar la imagen base de Rocker Shiny (evita configurar puertos y CMD manualmente)
+FROM rocker/shiny:4.3.2
 
-# 2. Instalar dependencias del sistema (añadidas librerías para compilar shiny y gráficos)
+# 2. Instalación de las dependencias del sistema (Incluyendo todas las que agregaste)
 RUN apt-get update && apt-get install -y \
     libcurl4-gnutls-dev \
     libssl-dev \
@@ -14,21 +14,19 @@ RUN apt-get update && apt-get install -y \
     libpng-dev \
     libtiff5-dev \
     libjpeg-dev \
+    libz-dev \
+    libxt6 \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# 3. Instalar los paquetes de R
-RUN R -e "install.packages(c('shiny', 'bs4Dash', 'dplyr', 'ggplot2', 'htmltools', 'readxl', 'haven', 'rmarkdown', 'writexl'), repos='https://cloud.r-project.org/')"
+# 3. Instalar los paquetes desde el repositorio de binarios (CRÍTICO para evitar el error de RAM)
+RUN R -e "install.packages(c('shiny', 'bs4Dash', 'dplyr', 'ggplot2', 'htmltools', 'readxl', 'haven', 'rmarkdown', 'writexl', 'tools'), repos='https://packagemanager.posit.co/cran/__linux__/jammy/latest')"
 
-# 4. VERIFICACIÓN: Fallar aquí si shiny no se instaló
+# 4. VERIFICACIÓN: Fallar aquí si shiny no se instaló (Tu excelente idea de control de calidad)
 RUN R -e "if (!requireNamespace('shiny', quietly = TRUE)) stop('ERROR FATAL: El paquete shiny no se instaló.')"
 
-# 5. Configurar directorio de la app
-RUN mkdir /app
-COPY . /app
-WORKDIR /app
+# 5. Copiar tu código al directorio nativo que espera Shiny Server
+COPY . /srv/shiny-server/
 
-# 6. Exponer puerto
-EXPOSE 8080
-
-# 7. Comando de inicio
-CMD ["R", "-e", "shiny::runApp('/app', host='0.0.0.0', port=as.numeric(Sys.getenv('PORT', '8080')))" ]
+# 6. Exponer el puerto estándar de la imagen rocker/shiny
+EXPOSE 3838
