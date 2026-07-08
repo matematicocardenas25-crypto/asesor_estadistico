@@ -60,10 +60,10 @@ mod_reportes_server <- function(id, df_global, vars) {
         vars_numericas <- names(datos)[sapply(datos, is.numeric)]
         vars_categoricas <- names(datos)[sapply(datos, function(x) is.factor(x) || is.character(x))]
         
-        output_format <- switch(input$formato_reporte,
-                                "html" = rmarkdown::html_document(toc = TRUE, toc_float = TRUE, theme = "flatly"),
-                                "docx" = rmarkdown::word_document(toc = TRUE),
-                                rmarkdown::html_document(toc = TRUE))
+       output_format <- switch(input$formato_reporte,
+                        "html" = rmarkdown::html_document(toc = TRUE), # Quitamos theme="flatly" y toc_float
+                        "docx" = rmarkdown::word_document(toc = TRUE),
+                        rmarkdown::html_document(toc = TRUE))
         
         params_list <- list(
           titulo = input$titulo_reporte,
